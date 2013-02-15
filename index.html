@@ -169,7 +169,7 @@ var yearlyBubbleChart = dc.bubbleChart("#yearly-bubble-chart");
 d3.selectAll("#version").text(dc.version);
 
 // load data from a csv file
-d3.csv("{{ static_url("ndx.csv") }}", function(data) {
+d3.json("/ndx", function(data) {
             // since its a csv file we need to format the data a bit
             var dateFormat = d3.time.format("%m/%d/%Y");
             var numberFormat = d3.format(".2f");
