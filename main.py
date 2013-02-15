@@ -1,24 +1,44 @@
 import os
-import tornado.httpserver
-import tornado.ioloop
-import tornado.options
+import json
+import motor
 import tornado.web
-from tornado.options import define, options
+import tornado.ioloop
 
-define("port", default=8000, help="run on the given port", type=int)
+from bson import json_util  # bson is installed along with pymongo
+from tornado import gen
 
 
 class IndexHandler(tornado.web.RequestHandler):
+    @tornado.web.asynchronous
+    @gen.engine
     def get(self):
         self.render('index.html')
 
-if __name__ == '__main__':
-    tornado.options.parse_command_line()
-    app = tornado.web.Application(
-        handlers=[(r'/', IndexHandler)],
-        static_path=os.path.join(os.path.dirname(__file__), "static"),
-        debug=True)
 
-    http_server = tornado.httpserver.HTTPServer(app)
-    http_server.listen(options.port)
+class NDXHandler(tornado.web.RequestHandler):
+    @tornado.web.asynchronous
+    @gen.engine
+    def get(self):
+        db = self.settings['db']
+
+        cursor = db.things.find({}, fields={'_id': False}).sort('_id')
+
+        data = yield motor.Op(cursor.to_list)
+
+        response_str = json.dumps(data, default=json_util.default)
+
+        self.set_header('Content-Type', 'application/json')
+        self.write(response_str)
+        self.finish()
+
+
+if __name__ == '__main__':
+    db = motor.MotorClient().open_sync().test
+
+    app = tornado.web.Application(
+        handlers=[(r'/', IndexHandler), (r'/ndx', NDXHandler)],
+        static_path=os.path.join(os.path.dirname(__file__), "static"),
+        debug=True, db=db)
+
+    app.listen(8000)
     tornado.ioloop.IOLoop.instance().start()
