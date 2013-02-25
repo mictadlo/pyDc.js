@@ -15,45 +15,11 @@ class IndexHandler(tornado.web.RequestHandler):
         self.render('index.html')
 
 
-class NDXHandler(tornado.web.RequestHandler):
-    @tornado.web.asynchronous
-    @gen.engine
-    def get(self):
-        db = self.settings['db']
-
-        cursor = db.ndx.find({}, fields={'_id': False}).sort('_id')
-
-        data = yield motor.Op(cursor.to_list)
-
-        response_str = json.dumps(data, default=json_util.default)
-
-        self.set_header('Content-Type', 'application/json')
-        self.write(response_str)
-        self.finish()
-
-
 class CrimeHandler(tornado.web.RequestHandler):
     @tornado.web.asynchronous
     @gen.engine
     def get(self):
         self.render('crime/index.html')
-
-
-class CrimeDbHandler(tornado.web.RequestHandler):
-    @tornado.web.asynchronous
-    @gen.engine
-    def get(self):
-        db = self.settings['db']
-
-        cursor = db.crime.find({}, fields={'_id': False}).sort('_id')
-
-        data = yield motor.Op(cursor.to_list)
-
-        response_str = json.dumps(data, default=json_util.default)
-
-        self.set_header('Content-Type', 'application/json')
-        self.write(response_str)
-        self.finish()
 
 
 class VcHandler(tornado.web.RequestHandler):
@@ -63,13 +29,17 @@ class VcHandler(tornado.web.RequestHandler):
         self.render('vc/index.html')
 
 
-class VcDbHandler(tornado.web.RequestHandler):
+class DBHandler(tornado.web.RequestHandler):
+    def initialize(self, collection_name):
+        self.collection_name = collection_name
+
     @tornado.web.asynchronous
     @gen.engine
     def get(self):
         db = self.settings['db']
 
-        cursor = db.vc.find({}, fields={'_id': False}).sort('_id')
+        collection = db[self.collection_name]
+        cursor = collection.find({}, fields={'_id': False}).sort('_id')
 
         data = yield motor.Op(cursor.to_list)
 
@@ -85,11 +55,11 @@ if __name__ == '__main__':
 
     app = tornado.web.Application(
         handlers=[(r'/', IndexHandler),
-                  (r'/ndx', NDXHandler),
+                  (r'/ndx', DBHandler, {'collection_name': 'ndx'}),
                   (r'/crime', CrimeHandler),
-                  (r'/crimedb', CrimeDbHandler),
+                  (r'/crimedb', DBHandler, {'collection_name': 'crime'}),
                   (r'/vc', VcHandler),
-                  (r'/vcdb', VcDbHandler)
+                  (r'/vcdb', DBHandler, {'collection_name': 'vc'})
                   ],
         static_path=os.path.join(os.path.dirname(__file__), "static"),
         debug=True, db=db)
